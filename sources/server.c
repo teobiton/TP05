@@ -16,7 +16,7 @@ static void app(void)
    int actual = 0;
    int max = sock;
    // an array for all clients
-   Client clients[2];
+   Client clients[max+1];
    // create the set
    fd_set rdfs;
 
@@ -34,7 +34,7 @@ static void app(void)
       FD_SET(sock, &rdfs);
 
       // add socket of each client
-      for(i = 0; i < 2; i++)
+      for(i = 0; i < max + 1; i++)
       {
          FD_SET(clients[i].sock, &rdfs);
       }
@@ -102,11 +102,11 @@ static void app(void)
                   remove_client(clients, i, actual);
                   strncpy(buffer,"Client disconnected", BUF_SIZE);
                   //strncat();
-                  send_message_to_all_clients();
+                  send_message_to_all_clients(clients, clients[i], actual, buffer, 1);
                }
                else // forward received message to all clients
                {
-                  send_message_to_all_clients();
+                  send_message_to_all_clients(clients, clients[i], actual, buffer, 0);
                }
                break;
             }
@@ -123,14 +123,14 @@ static void clear_clients(Client *clients, int actual)
    int i = 0;
    for(i = 0; i < actual; i++)
    {
-      closesocket(clients->sock);
+      closesocket(clients[i].sock);
    }
 }
 
 static void remove_client(Client *clients, int to_remove, int *actual)
 {
    // we remove the client in the array
-   memmove(to_remove, clients[&actual], actual);
+   memmove(clients, clients, actual);
    // decrease number client
    actual--;
 }
@@ -153,9 +153,9 @@ static void send_message_to_all_clients(Client *clients, Client sender, int actu
             strncat(message, " : ", sizeof message - strlen(message) - 1);
          }
          // add incoming message
-         strncat();
+         strncat(message, from_server , sizeof message - strlen(message) - 1);
          // send to client
-         write_client(socket, buffer);
+         write_client(socket, message);
       }
    }
 }
