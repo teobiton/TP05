@@ -11,12 +11,12 @@ static void app(void)
 {
    // create the socket
    SOCKET sock = init_connection();
-   char buffer[];
+   char buffer[BUF_SIZE];
    // the index for the array 
    int actual = 0;
    int max = sock;
    // an array for all clients
-   Client clients[];
+   Client clients[2];
    // create the set
    fd_set rdfs;
 
@@ -25,21 +25,21 @@ static void app(void)
    {
       int i = 0;
       // clear the set
-      FD_ZERO();
+      FD_ZERO(&rdfs);
 
       // add STDIN_FILENO
-      FD_SET();
+      FD_SET(STDIN_FILENO, &rdfs);
 
       // add the connection socket
-      FD_SET();
+      FD_SET(sock, &rdfs);
 
       // add socket of each client
-      for(i = 0; i < actual; i++)
+      for(i = 0; i < 2; i++)
       {
-         FD_SET();
+         FD_SET(clients[i].sock, &rdfs);
       }
       // check modification on set
-      if(select() == -1)
+      if(select(sock + 1, &rdfs, NULL, NULL, NULL) == -1)
       {
          // manage error
          perror("select()");
@@ -47,19 +47,19 @@ static void app(void)
       }
 
       // something from standard input : i.e keyboard
-      if(FD_ISSET())
+      if(FD_ISSET(STDIN_FILENO, &rdfs))
       {
          // stop process when type on keyboard
          break;
       }
       // something from the socket
-      else if(FD_ISSET())
+      else if(FD_ISSET(sock, &rdfs))
       {
          // new client
          SOCKADDR_IN csin = { 0 };
          size_t sinsize = sizeof csin;
          // accept the client
-         int csock = accept();
+         int csock = accept(sock, &csin, sinsize);
          if(csock == SOCKET_ERROR)
          {
             // manage error
@@ -68,7 +68,7 @@ static void app(void)
          }
          printf("accept new client\n");
          // after connecting the client sends its name 
-         if(read_client() == -1)
+         if(read_client(csock, buffer) == -1)
          {
             // disconnected
             continue;
@@ -77,10 +77,10 @@ static void app(void)
          // what is the new maximum fd ?
          max = csock > max ? csock : max;
          // add the new socket to the set
-         FD_SET();
+         FD_SET(csock, &rdfs);
          // save data from the new client
          Client c = { csock };
-         strncpy();
+         strncpy(&buffer,);
          clients[actual] = c;
          actual++;
       }
@@ -90,16 +90,16 @@ static void app(void)
          for(i = 0; i < actual; i++)
          {
             // a client is talking
-            if(FD_ISSET())
+            if(FD_ISSET(sock, &rdfs))
             {
                Client client = clients[i];
-               int c = read_client();
-               printf("received %s\n",buffer);
+               int c = read_client(client.sock, buffer);
+               printf("received %s\n", buffer);
                // client disconnected
                if(c == 0)
                {
-                  closesocket();
-                  remove_client();
+                  closesocket(client.sock);
+                  remove_client(clients, i, actual);
                   strncpy();
                   strncat();
                   send_message_to_all_clients();
@@ -114,8 +114,8 @@ static void app(void)
       }
    }
    // properly close sockets
-   clear_clients();
-   end_connection();
+   clear_clients(clients, actual);
+   end_connection(sock);
 }
 
 static void clear_clients(Client *clients, int actual)
@@ -130,9 +130,9 @@ static void clear_clients(Client *clients, int actual)
 static void remove_client(Client *clients, int to_remove, int *actual)
 {
    // we remove the client in the array
-   memmove();
+   memmove(to_remove, clients[&actual], actual);
    // decrease number client
-   decrease_pointer
+   actual--;
 }
 
 static void send_message_to_all_clients(Client *clients, Client sender, int actual, const char *buffer, char from_server)
@@ -155,7 +155,7 @@ static void send_message_to_all_clients(Client *clients, Client sender, int actu
          // add incoming message
          strncat();
          // send to client
-         write_client();
+         write_client(socket, buffer);
       }
    }
 }
@@ -199,7 +199,7 @@ static int init_connection(void)
 
 static void end_connection(int sock)
 {
-   closesocket();
+   closesocket(sock);
 }
 
 static int read_client(SOCKET sock, char *buffer)
@@ -207,7 +207,7 @@ static int read_client(SOCKET sock, char *buffer)
    int n = 0;
 
    // receive data from socket and store it to buffer
-   if((n = recv()) < 0)
+   if((n = recv(sock, buffer, BUF_SIZE, 0)) < 0)
    {
       // manage error
       perror("recv()");
@@ -223,7 +223,7 @@ static int read_client(SOCKET sock, char *buffer)
 static void write_client(SOCKET sock, const char *buffer)
 {
    // send data from buffer to socket
-   if(send() < 0)
+   if(send(sock, buffer, BUF_SIZE, 0) < 0)
    {
       // manage error
       perror("send()");
