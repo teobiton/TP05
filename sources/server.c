@@ -6,6 +6,7 @@
 #include "server.h"
 #include "client_ext.h"
 
+#define NB_CLIENTS 5
 
 static void app(void)
 {
@@ -16,13 +17,14 @@ static void app(void)
    int actual = 0;
    int max = sock;
    // an array for all clients
-   Client clients[max+1];
+   Client clients[NB_CLIENTS];
    // create the set
    fd_set rdfs;
 
    // endless loop
    while(1)
    {
+      
       int i = 0;
       // clear the set
       FD_ZERO(&rdfs);
@@ -34,12 +36,12 @@ static void app(void)
       FD_SET(sock, &rdfs);
 
       // add socket of each client
-      for(i = 0; i < max + 1; i++)
+      for(i = 0; i < actual; i++)
       {
          FD_SET(clients[i].sock, &rdfs);
       }
       // check modification on set
-      if(select(sock + 1, &rdfs, NULL, NULL, NULL) == -1)
+      if(select(max + 1, &rdfs, NULL, NULL, NULL) == -1)
       {
          // manage error
          perror("select()");
@@ -59,7 +61,7 @@ static void app(void)
          SOCKADDR_IN csin = { 0 };
          size_t sinsize = sizeof csin;
          // accept the client
-         int csock = accept(sock, &csin, sinsize);
+         int csock = accept(sock, (struct sockaddr *) &csin, (socklen_t *) &sinsize);
          if(csock == SOCKET_ERROR)
          {
             // manage error
@@ -80,9 +82,10 @@ static void app(void)
          FD_SET(csock, &rdfs);
          // save data from the new client
          Client c = { csock };
-         strncpy(c.name,buffer,strlen(buffer)); /* copy the name (lou) */
+         strncpy(c.name, buffer, strlen(buffer)); /* copy the name (lou) */
          clients[actual] = c;
          actual++;
+         printf("Client name: %s\n", buffer);
       }
       else // something from the connected sockets
       {
@@ -90,7 +93,7 @@ static void app(void)
          for(i = 0; i < actual; i++)
          {
             // a client is talking
-            if(FD_ISSET(sock, &rdfs))
+            if(FD_ISSET(clients[i].sock, &rdfs))
             {
                Client client = clients[i];
                int c = read_client(client.sock, buffer);
@@ -99,9 +102,9 @@ static void app(void)
                if(c == 0)
                {
                   closesocket(client.sock);
-                  remove_client(clients, i, actual);
+                  remove_client(clients, i, &actual);
                   strncpy(buffer,"Client disconnected", BUF_SIZE);
-                  //strncat();
+                  strncat(buffer, "Server : ", BUF_SIZE - strlen(buffer) - 1);
                   send_message_to_all_clients(clients, clients[i], actual, buffer, 1);
                }
                else // forward received message to all clients
@@ -130,7 +133,7 @@ static void clear_clients(Client *clients, int actual)
 static void remove_client(Client *clients, int to_remove, int *actual)
 {
    // we remove the client in the array
-   memmove(clients, clients, actual);
+   memmove(clients, clients, *actual);
    // decrease number client
    actual--;
 }
@@ -148,14 +151,14 @@ static void send_message_to_all_clients(Client *clients, Client sender, int actu
          if(from_server == 0)
          {
             // create string and set the client name
-            strncpy(message, buffer, BUF_SIZE);
+            strncpy(message, sender.name, BUF_SIZE);
             // add " : "
             strncat(message, " : ", sizeof message - strlen(message) - 1);
          }
          // add incoming message
-         strncat(message, from_server , sizeof message - strlen(message) - 1);
+         strncat(message, buffer , sizeof message - strlen(message) - 1);
          // send to client
-         write_client(socket, message);
+         write_client(clients[i].sock, message);
       }
    }
 }
@@ -224,7 +227,7 @@ static void write_client(SOCKET sock, const char *buffer)
 {
    // send data from buffer to socket
    // TODO change flag
-   if(send(sock, buffer, BUF_SIZE, NULL) < 0)
+   if(send(sock, buffer, BUF_SIZE, 0) < 0)
    {
       // manage error
       perror("send()");
@@ -234,7 +237,7 @@ static void write_client(SOCKET sock, const char *buffer)
 
 int main(int argc, char **argv)
 {
-
+   
    // start application
    app();
 
