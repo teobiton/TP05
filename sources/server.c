@@ -100,7 +100,7 @@ static void app(void)
                {
                   closesocket(client.sock);
                   remove_client(clients, i, actual);
-                  strncpy();
+                  strncpy(buffer);
                   strncat();
                   send_message_to_all_clients();
                }
@@ -123,7 +123,7 @@ static void clear_clients(Client *clients, int actual)
    int i = 0;
    for(i = 0; i < actual; i++)
    {
-      closesocket();
+      closesocket(clients->sock);
    }
 }
 
@@ -148,7 +148,7 @@ static void send_message_to_all_clients(Client *clients, Client sender, int actu
          if(from_server == 0)
          {
             // create string and set the client name
-            strncpy();
+            strncpy(message, buffer, BUF_SIZE);
             // add " : "
             strncat(message, " : ", sizeof message - strlen(message) - 1);
          }
@@ -223,7 +223,8 @@ static int read_client(SOCKET sock, char *buffer)
 static void write_client(SOCKET sock, const char *buffer)
 {
    // send data from buffer to socket
-   if(send(sock, buffer, BUF_SIZE, 0) < 0)
+   // TODO change flag
+   if(send(sock, buffer, BUF_SIZE, NULL) < 0)
    {
       // manage error
       perror("send()");
