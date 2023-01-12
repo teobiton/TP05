@@ -80,7 +80,7 @@ static void app(void)
          FD_SET(csock, &rdfs);
          // save data from the new client
          Client c = { csock };
-         strncpy(&buffer,);
+         strncpy(c.name,buffer,strlen(buffer)); /* copy the name (lou) */
          clients[actual] = c;
          actual++;
       }
@@ -100,8 +100,8 @@ static void app(void)
                {
                   closesocket(client.sock);
                   remove_client(clients, i, actual);
-                  strncpy(buffer);
-                  strncat();
+                  strncpy(buffer,"Client disconnected", BUF_SIZE);
+                  //strncat();
                   send_message_to_all_clients();
                }
                else // forward received message to all clients
