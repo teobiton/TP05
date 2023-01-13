@@ -68,7 +68,7 @@ static void app(void)
             perror("accept()");
             continue;
          }
-         printf("accept new client\n");
+
          // after connecting the client sends its name 
          if(read_client(csock, buffer) == -1)
          {
@@ -82,7 +82,7 @@ static void app(void)
          FD_SET(csock, &rdfs);
          // save data from the new client
          Client c = { csock };
-         strncpy(c.name, buffer, strlen(buffer)); /* copy the name (lou) */
+         strncpy(c.name, buffer, BUF_SIZE); /* copy the name (lou) */
          clients[actual] = c;
          actual++;
          printf("Client name: %s\n", buffer);
@@ -97,19 +97,21 @@ static void app(void)
             {
                Client client = clients[i];
                int c = read_client(client.sock, buffer);
-               printf("received %s\n", buffer);
+               
                // client disconnected
                if(c == 0)
                {
                   closesocket(client.sock);
                   remove_client(clients, i, &actual);
-                  strncpy(buffer,"Client disconnected", BUF_SIZE);
-                  strncat(buffer, "Server : ", BUF_SIZE - strlen(buffer) - 1);
-                  send_message_to_all_clients(clients, clients[i], actual, buffer, 1);
+                  strncpy(buffer, client.name, BUF_SIZE - 1);
+                  strncat(buffer, " disconnected.",  BUF_SIZE - strlen(buffer) - 1);
+                  printf("%s disconnected.\n", client.name);
+                  send_message_to_all_clients(clients, client, actual, buffer, 1);
                }
                else // forward received message to all clients
                {
-                  send_message_to_all_clients(clients, clients[i], actual, buffer, 0);
+                  printf("Received from %s : %s\n", client.name, buffer);
+                  send_message_to_all_clients(clients, client, actual, buffer, 0);
                }
                break;
             }
@@ -132,10 +134,17 @@ static void clear_clients(Client *clients, int actual)
 
 static void remove_client(Client *clients, int to_remove, int *actual)
 {
-   // we remove the client in the array
-   memmove(clients, clients, *actual);
+
+   const size_t CLIENT_SIZE = sizeof(Client);
+   void * dest = clients + to_remove;
+   void * src = clients + (to_remove + 1);
+   size_t n_bytes = (*actual - to_remove - 1)*CLIENT_SIZE;
+
+   memmove(dest, src, n_bytes);
+
    // decrease number client
-   actual--;
+   (*actual)--;
+
 }
 
 static void send_message_to_all_clients(Client *clients, Client sender, int actual, const char *buffer, char from_server)
@@ -151,7 +160,7 @@ static void send_message_to_all_clients(Client *clients, Client sender, int actu
          if(from_server == 0)
          {
             // create string and set the client name
-            strncpy(message, sender.name, BUF_SIZE);
+            strncpy(message, sender.name, BUF_SIZE - 1);
             // add " : "
             strncat(message, " : ", sizeof message - strlen(message) - 1);
          }
@@ -227,7 +236,7 @@ static void write_client(SOCKET sock, const char *buffer)
 {
    // send data from buffer to socket
    // TODO change flag
-   if(send(sock, buffer, BUF_SIZE, 0) < 0)
+   if(send(sock, buffer, strlen(buffer), 0) < 0)
    {
       // manage error
       perror("send()");
